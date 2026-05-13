@@ -68,7 +68,7 @@ func registerSearchIssues(s *server.MCPServer, client *redmine.Client) {
 			return searchWithText(client, project, status, assignee, tracker, version, query, sort, limit, offset)
 		}
 
-		params, err := buildListParams(client, project, status, assignee, tracker, version, sort, limit, offset)
+		params, err := BuildListParams(client, project, status, assignee, tracker, version, sort, limit, offset)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("filter error: %v", err)), nil
 		}
@@ -78,13 +78,15 @@ func registerSearchIssues(s *server.MCPServer, client *redmine.Client) {
 			return mcp.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 		}
 
-		result := formatIssueSummaries(issues, offset)
+		result := FormatIssueSummaries(issues, offset)
 		result += fmt.Sprintf("Total: %d issue(s)\n", total)
 		return mcp.NewToolResultText(result), nil
 	})
 }
 
-func buildListParams(client *redmine.Client, project, status, assignee, tracker, version, sort string, limit, offset int) (redmine.IssueListParams, error) {
+// BuildListParams builds an IssueListParams from human-readable filters,
+// resolving names to numeric IDs via the client's reference caches.
+func BuildListParams(client *redmine.Client, project, status, assignee, tracker, version, sort string, limit, offset int) (redmine.IssueListParams, error) {
 	params := redmine.IssueListParams{
 		ProjectID: project,
 		Sort:      sort,
@@ -145,7 +147,7 @@ func searchWithText(client *redmine.Client, project, status, assignee, tracker, 
 	}
 
 	// Fetch full issue data with any additional filters
-	params, err := buildListParams(client, project, status, assignee, tracker, version, sort, limit, offset)
+	params, err := BuildListParams(client, project, status, assignee, tracker, version, sort, limit, offset)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("filter error: %v", err)), nil
 	}
@@ -156,7 +158,7 @@ func searchWithText(client *redmine.Client, project, status, assignee, tracker, 
 		return mcp.NewToolResultError(fmt.Sprintf("search failed: %v", err)), nil
 	}
 
-	result := formatIssueSummaries(issues, offset)
+	result := FormatIssueSummaries(issues, offset)
 	result += fmt.Sprintf("Total: %d issue(s) (text search: %d matches)\n", total, len(results))
 	return mcp.NewToolResultText(result), nil
 }

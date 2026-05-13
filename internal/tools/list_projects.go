@@ -24,6 +24,6 @@ func registerListProjects(s *server.MCPServer, client *redmine.Client) {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to list projects: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(formatProjects(projects)), nil
+		return mcp.NewToolResultText(FormatProjects(projects)), nil
 	})
 }

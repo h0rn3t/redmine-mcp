@@ -7,7 +7,7 @@ import (
 	"github.com/edouard-claude/redmine-mcp/internal/redmine"
 )
 
-func formatIssue(issue *redmine.Issue, maxDesc int) string {
+func FormatIssue(issue *redmine.Issue, maxDesc int) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "# Issue #%d — %s\n", issue.ID, issue.Subject)
@@ -64,7 +64,7 @@ func formatIssue(issue *redmine.Issue, maxDesc int) string {
 	return b.String()
 }
 
-func formatIssueSummaries(issues []redmine.Issue, offset int) string {
+func FormatIssueSummaries(issues []redmine.Issue, offset int) string {
 	if len(issues) == 0 {
 		return "No issues found."
 	}
@@ -94,7 +94,7 @@ func formatIssueSummaries(issues []redmine.Issue, offset int) string {
 	return b.String()
 }
 
-func formatComments(issueID int, journals []redmine.Journal) string {
+func FormatComments(issueID int, journals []redmine.Journal) string {
 	// filter to journals with notes only
 	var comments []redmine.Journal
 	for _, j := range journals {
@@ -117,7 +117,7 @@ func formatComments(issueID int, journals []redmine.Journal) string {
 	return b.String()
 }
 
-func formatProjects(projects []redmine.Project) string {
+func FormatProjects(projects []redmine.Project) string {
 	if len(projects) == 0 {
 		return "No projects found."
 	}
@@ -140,7 +140,7 @@ func formatProjects(projects []redmine.Project) string {
 	return b.String()
 }
 
-func formatAttachments(issueID int, attachments []redmine.Attachment) string {
+func FormatAttachments(issueID int, attachments []redmine.Attachment) string {
 	if len(attachments) == 0 {
 		return fmt.Sprintf("No attachments for issue #%d.", issueID)
 	}
@@ -163,7 +163,7 @@ func formatAttachments(issueID int, attachments []redmine.Attachment) string {
 	return b.String()
 }
 
-func formatChildren(issueID int, children []redmine.ChildIssue) string {
+func FormatChildren(issueID int, children []redmine.ChildIssue) string {
 	if len(children) == 0 {
 		return fmt.Sprintf("No subtasks for issue #%d.", issueID)
 	}

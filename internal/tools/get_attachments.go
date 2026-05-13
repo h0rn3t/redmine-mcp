@@ -33,6 +33,6 @@ func registerGetAttachments(s *server.MCPServer, client *redmine.Client) {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get attachments: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(formatAttachments(issueID, issue.Attachments)), nil
+		return mcp.NewToolResultText(FormatAttachments(issueID, issue.Attachments)), nil
 	})
 }

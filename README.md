@@ -1,8 +1,11 @@
 # redmine-mcp
 
-An [MCP](https://modelcontextprotocol.io/) server that connects AI assistants (Claude Desktop, Claude Code, etc.) to [Redmine](https://www.redmine.org/) via its REST API.
+A single Go binary that exposes [Redmine](https://www.redmine.org/) through two interfaces:
 
-Read and write issues, comments, attachments, and projects — directly from your AI workflow.
+- an **[MCP](https://modelcontextprotocol.io/) server** over stdio (JSON-RPC) — for Claude Desktop, Claude Code, and any MCP-aware client;
+- a **plain CLI** with subcommands — composable from a shell or invoked by agents via `Bash` (the [Pi](https://pi.dev/)-style pattern that avoids preloading tool schemas).
+
+Read and write issues, comments, attachments, and projects — pick whichever interface fits the caller.
 
 ## Features
 
@@ -27,6 +30,43 @@ Read and write issues, comments, attachments, and projects — directly from you
 | `update_comment` | Edit an existing comment |
 
 Tools accept human-readable names for statuses, trackers, assignees, and versions — they are resolved to IDs automatically.
+
+## Two ways to run it
+
+The same binary detects how it was invoked:
+
+```bash
+redmine-mcp                          # MCP stdio server (default — Claude Desktop config)
+redmine-mcp mcp                      # MCP stdio server (explicit)
+redmine-mcp help                     # CLI help
+redmine-mcp <command> [flags]        # CLI mode (see below)
+```
+
+### CLI mode
+
+Every MCP tool has a kebab-case CLI equivalent. Each subcommand has its own `--help`:
+
+```bash
+redmine-mcp get-issue 7415
+redmine-mcp get-issue --max-desc 5000 7415
+redmine-mcp search --project apnl --status open --limit 10
+redmine-mcp search --query "login crash" --project apnl
+redmine-mcp get-comments 7415
+redmine-mcp get-subtasks 7415
+redmine-mcp get-attachments 7415
+redmine-mcp download-attachment --id 4321 --filename screenshot.png -o /tmp/screen.png
+redmine-mcp list-projects
+redmine-mcp create-issue --project apnl --subject "Bug login" --tracker Anomalie
+redmine-mcp update-issue 7415 --status "Résolu" --notes "Fixed in v7.6.2"
+redmine-mcp update-comment 98765 --notes "edited content"
+```
+
+Conventions:
+
+- Flags must precede positional arguments (stdlib `flag` limitation).
+- Errors go to stderr; results go to stdout.
+- Exit codes: `0` success, `1` operation error, `2` usage error.
+- `download-attachment -o <path>` writes binary content to disk; without `-o`, text is printed inline and images are base64-encoded on stdout.
 
 ## Prerequisites
 
@@ -120,15 +160,16 @@ Once connected, you can ask your AI assistant things like:
 ## Architecture
 
 ```
-cmd/redmine-mcp/       → Entry point (MCP stdio server)
+cmd/redmine-mcp/       → Entry point, routes args[0] → MCP server or CLI dispatcher
 internal/
   ├── redmine/         → REST API client, types, HTTP helpers
-  └── tools/           → MCP tool handlers + formatting
+  ├── tools/           → MCP tool handlers + exported formatters (FormatIssue, …)
+  └── cli/             → Subcommand dispatcher (stdlib `flag`), reuses tools.Format* and redmine.Client
 ```
 
 Built with:
 - [mcp-go](https://github.com/mark3labs/mcp-go) — Go MCP SDK
-- Go standard library (`net/http`, `encoding/json`)
+- Go standard library only (`net/http`, `encoding/json`, `flag`)
 
 No database driver needed — everything goes through the Redmine REST API.
 

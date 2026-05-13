@@ -33,6 +33,6 @@ func registerGetSubtasks(s *server.MCPServer, client *redmine.Client) {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get subtasks: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(formatChildren(issueID, issue.Children)), nil
+		return mcp.NewToolResultText(FormatChildren(issueID, issue.Children)), nil
 	})
 }

@@ -33,6 +33,6 @@ func registerGetComments(s *server.MCPServer, client *redmine.Client) {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get comments: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(formatComments(issueID, issue.Journals)), nil
+		return mcp.NewToolResultText(FormatComments(issueID, issue.Journals)), nil
 	})
 }

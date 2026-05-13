@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/edouard-claude/redmine-mcp/internal/cli"
 	"github.com/edouard-claude/redmine-mcp/internal/redmine"
 	"github.com/edouard-claude/redmine-mcp/internal/tools"
 	"github.com/mark3labs/mcp-go/server"
@@ -12,12 +13,25 @@ import (
 var version = "2.0.0"
 
 func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+// run dispatches between MCP stdio mode (default, or explicit "mcp"/"serve")
+// and CLI mode (any other subcommand). Returns the process exit code.
+func run(args []string) int {
 	client, err := redmine.NewClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "redmine client: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
+	if len(args) == 0 || args[0] == "mcp" || args[0] == "serve" {
+		return runMCP(client)
+	}
+	return cli.Run(args, client)
+}
+
+func runMCP(client *redmine.Client) int {
 	s := server.NewMCPServer(
 		"redmine-mcp",
 		version,
@@ -30,6 +44,7 @@ When reading an issue with get_issue, if the issue contains a substantial descri
 
 	if err := server.ServeStdio(s); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

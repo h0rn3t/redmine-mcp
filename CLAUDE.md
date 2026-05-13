@@ -1,6 +1,8 @@
 # redmine-mcp
 
-MCP server providing read/write access to Redmine via its REST API.
+Single binary exposing Redmine via two interfaces:
+- **MCP stdio server** (JSON-RPC over stdin/stdout) — default mode, compatible with Claude Desktop and any MCP client.
+- **CLI subcommands** (Pi-style, composable via Bash) — same operations, invoked as `redmine-mcp <command> [flags]`.
 
 ## Build & Deploy
 
@@ -19,11 +21,33 @@ make install   # builds directly to /usr/local/bin/redmine-mcp
 ## Architecture
 
 ```
-cmd/redmine-mcp/       → Entry point, MCP stdio server
+cmd/redmine-mcp/       → Entry point, routes args[0] → MCP server or CLI
 internal/
   ├── redmine/         → REST API client, types, HTTP helpers
-  └── tools/           → MCP tool registrations + formatting
+  ├── tools/           → MCP tool registrations + exported formatters (FormatIssue, FormatComments, …)
+  └── cli/             → CLI dispatcher (flag-based subcommands), reuses tools.Format* and redmine.Client
 ```
+
+Routing in `cmd/redmine-mcp/main.go`:
+- no args, `mcp`, or `serve` → `server.ServeStdio` (MCP mode, Claude Desktop)
+- any other first arg → `cli.Run` (e.g. `redmine-mcp get-issue 1234`)
+
+## CLI subcommands
+
+Each MCP tool has a CLI equivalent (kebab-case). Help is per-command:
+
+```bash
+redmine-mcp                          # → MCP stdio server
+redmine-mcp mcp                      # → MCP stdio (explicit)
+redmine-mcp help                     # → top-level help
+redmine-mcp get-issue --help         # → flags for a subcommand
+redmine-mcp get-issue 7415
+redmine-mcp search --project apnl --status open --limit 5
+redmine-mcp create-issue --project apnl --subject "..."
+redmine-mcp update-issue 7415 --notes "comment" --status "Résolu"
+```
+
+Flags must precede positional args (stdlib `flag` limitation).
 
 ## MCP Tools
 

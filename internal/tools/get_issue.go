@@ -37,6 +37,6 @@ func registerGetIssue(s *server.MCPServer, client *redmine.Client) {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %v", err)), nil
 		}
 
-		return mcp.NewToolResultText(formatIssue(issue, maxDesc)), nil
+		return mcp.NewToolResultText(FormatIssue(issue, maxDesc)), nil
 	})
 }
