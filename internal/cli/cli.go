@@ -98,7 +98,7 @@ func parseWithFlags(fs *flag.FlagSet, args []string, positional string, wantN in
 	fs.Usage = func() {
 		w := fs.Output()
 		if positional != "" {
-			fmt.Fprintf(w, "Usage: redmine-mcp %s %s [flags]\n", fs.Name(), positional)
+			fmt.Fprintf(w, "Usage: redmine-mcp %s [flags] %s\n", fs.Name(), positional)
 		} else {
 			fmt.Fprintf(w, "Usage: redmine-mcp %s [flags]\n", fs.Name())
 		}
@@ -115,6 +115,9 @@ func parseWithFlags(fs *flag.FlagSet, args []string, positional string, wantN in
 		fmt.Fprintf(os.Stderr, "%s requires %d positional argument(s) (%s)\n", fs.Name(), wantN, positional)
 		return nil, 2, false
 	}
+	if !checkNoExtraArgs(fs.Name(), rest[wantN:]) {
+		return nil, 2, false
+	}
 	ids = make([]int, wantN)
 	for i := 0; i < wantN; i++ {
 		v, err := strconv.Atoi(rest[i])
@@ -125,6 +128,43 @@ func parseWithFlags(fs *flag.FlagSet, args []string, positional string, wantN in
 		ids[i] = v
 	}
 	return ids, 0, true
+}
+
+// parseFlagsOnly parses flags for a subcommand that takes no positional args.
+// Reports unexpected positionals — a common mistake is placing flags after a
+// would-be positional, which Go's flag package silently drops.
+func parseFlagsOnly(fs *flag.FlagSet, args []string) (exitCode int, ok bool) {
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: redmine-mcp %s [flags]\n", fs.Name())
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0, false
+		}
+		return 2, false
+	}
+	if !checkNoExtraArgs(fs.Name(), fs.Args()) {
+		return 2, false
+	}
+	return 0, true
+}
+
+// checkNoExtraArgs reports leftover args. A leftover beginning with '-' is
+// almost always a flag placed after a positional — Go's flag package stops at
+// the first non-flag, so those flags silently never take effect.
+func checkNoExtraArgs(cmd string, extra []string) bool {
+	if len(extra) == 0 {
+		return true
+	}
+	for _, a := range extra {
+		if strings.HasPrefix(a, "-") {
+			fmt.Fprintf(os.Stderr, "%s: unexpected argument %q after positional — flags must precede positional args (try 'redmine-mcp %s --help')\n", cmd, a, cmd)
+			return false
+		}
+	}
+	fmt.Fprintf(os.Stderr, "%s: unexpected extra argument(s): %v\n", cmd, extra)
+	return false
 }
 
 // --- reads ---
@@ -156,8 +196,8 @@ func cmdSearch(client *redmine.Client, args []string) int {
 	sort := fs.String("sort", "updated_on:desc", "Sort field (e.g. priority:desc)")
 	limit := fs.Int("limit", 20, "Max results (max 100)")
 	offset := fs.Int("offset", 0, "Pagination offset")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	if code, ok := parseFlagsOnly(fs, args); !ok {
+		return code
 	}
 	if *limit > 100 {
 		*limit = 100
@@ -240,8 +280,8 @@ func cmdDownloadAttachment(client *redmine.Client, args []string) int {
 	id := fs.Int("id", 0, "Attachment ID (required)")
 	filename := fs.String("filename", "", "Original filename (required)")
 	out := fs.String("o", "", "Write content to this path (default: write text to stdout, base64 image to stdout)")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	if code, ok := parseFlagsOnly(fs, args); !ok {
+		return code
 	}
 	if *id == 0 || *filename == "" {
 		return failf("download-attachment: --id and --filename are required")
@@ -283,6 +323,10 @@ func isTextExt(filename string) bool {
 }
 
 func cmdListProjects(client *redmine.Client, args []string) int {
+	fs := flag.NewFlagSet("list-projects", flag.ContinueOnError)
+	if code, ok := parseFlagsOnly(fs, args); !ok {
+		return code
+	}
 	projects, _, err := client.ListProjects(100, 0)
 	if err != nil {
 		return failf("list projects: %v", err)
@@ -304,8 +348,8 @@ func cmdCreateIssue(client *redmine.Client, args []string) int {
 	assignee := fs.String("assignee", "", "Assignee name or numeric ID")
 	version := fs.String("version", "", "Target version name or numeric ID")
 	parentID := fs.Int("parent-id", 0, "Parent issue ID for subtasks")
-	if err := fs.Parse(args); err != nil {
-		return 2
+	if code, ok := parseFlagsOnly(fs, args); !ok {
+		return code
 	}
 	if *project == "" || *subject == "" {
 		return failf("create-issue: --project and --subject are required")
@@ -390,6 +434,10 @@ func cmdUpdateIssue(client *redmine.Client, args []string) int {
 		return code
 	}
 	id := ids[0]
+
+	if fs.NFlag() == 0 {
+		return failf("update-issue: no fields to change — provide at least one flag (try 'redmine-mcp update-issue --help')")
+	}
 
 	var params redmine.IssueUpdateParams
 	if *notes != "" {
