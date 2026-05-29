@@ -82,14 +82,14 @@ Conventions:
 4. Click **Show** to reveal your existing key, or **Reset** to generate a new one
 5. Copy the key
 
-> **Note:** If you don't see the API access key section, your Redmine administrator may need to enable the REST API. This is done in **Administration → Settings → API tab → Enable REST web service**.
+> **Note:** If you don't see the API access key section, your Redmine administrator may need to enable the REST API. This is done in **Administration → Settings → API tab → Enable REST web s[...]
 
 ## Installation
 
 ### From source
 
 ```bash
-git clone https://github.com/edouard-claude/redmine-mcp.git
+git clone https://github.com/h0rn3t/redmine-mcp.git
 cd redmine-mcp
 make install   # builds and installs to /usr/local/bin/redmine-mcp
 ```
@@ -97,7 +97,7 @@ make install   # builds and installs to /usr/local/bin/redmine-mcp
 ### Go install
 
 ```bash
-go install github.com/edouard-claude/redmine-mcp/cmd/redmine-mcp@latest
+go install github.com/h0rn3t/redmine-mcp/cmd/redmine-mcp@latest
 ```
 
 ## Configuration
