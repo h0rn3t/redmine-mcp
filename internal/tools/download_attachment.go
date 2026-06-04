@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/edouard-claude/redmine-mcp/internal/redmine"
+	"github.com/h0rn3t/redmine-mcp/internal/redmine"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )

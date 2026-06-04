@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/edouard-claude/redmine-mcp/internal/redmine"
+	"github.com/h0rn3t/redmine-mcp/internal/redmine"
 )
 
 func FormatIssue(issue *redmine.Issue, maxDesc int) string {
