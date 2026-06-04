@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/edouard-claude/redmine-mcp/internal/cli"
-	"github.com/edouard-claude/redmine-mcp/internal/redmine"
-	"github.com/edouard-claude/redmine-mcp/internal/tools"
+	"github.com/h0rn3t/redmine-mcp/internal/cli"
+	"github.com/h0rn3t/redmine-mcp/internal/redmine"
+	"github.com/h0rn3t/redmine-mcp/internal/tools"
 	"github.com/mark3labs/mcp-go/server"
 )
 
@@ -37,7 +37,10 @@ func runMCP(client *redmine.Client) int {
 		version,
 		server.WithInstructions(`Redmine access via REST API. Query and manage issues, comments, attachments, and projects.
 
-When reading an issue with get_issue, if the issue contains a substantial description or requirements that imply implementation work, suggest entering plan mode to design the approach before coding.`),
+When reading an issue with get_issue, if the issue contains a substantial description or requirements that imply implementation work, suggest entering plan mode to design the approach before coding.
+
+Before creating a large number of issues, consider using plan mode to batch them.
+`),
 	)
 
 	tools.RegisterAll(s, client)

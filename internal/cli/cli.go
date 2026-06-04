@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/edouard-claude/redmine-mcp/internal/redmine"
-	"github.com/edouard-claude/redmine-mcp/internal/tools"
+	"github.com/h0rn3t/redmine-mcp/internal/redmine"
+	"github.com/h0rn3t/redmine-mcp/internal/tools"
 )
 
 // Run dispatches a CLI subcommand. Returns a process exit code.
@@ -74,7 +74,7 @@ Writes:
 
 Server:
   mcp                       Run as MCP server over stdio (also the default
-                            when invoked with no arguments)
+                             when invoked with no arguments)
 
 Run 'redmine-mcp <command> --help' for command-specific options.
 
@@ -189,7 +189,7 @@ func cmdSearch(client *redmine.Client, args []string) int {
 	fs := flag.NewFlagSet("search", flag.ContinueOnError)
 	project := fs.String("project", "", "Project identifier")
 	status := fs.String("status", "", "Status: 'open', 'closed', '*', or a status name")
-	assignee := fs.String("assignee", "", "Assignee name or numeric ID")
+	asignee := fs.String("assignee", "", "Assignee name or numeric ID")
 	tracker := fs.String("tracker", "", "Tracker name")
 	version := fs.String("version", "", "Target version name")
 	query := fs.String("query", "", "Free-text search in subject/description")
@@ -203,7 +203,7 @@ func cmdSearch(client *redmine.Client, args []string) int {
 		*limit = 100
 	}
 
-	params, err := tools.BuildListParams(client, *project, *status, *assignee, *tracker, *version, *sort, *limit, *offset)
+	params, err := tools.BuildListParams(client, *project, *status, *asignee, *tracker, *version, *sort, *limit, *offset)
 	if err != nil {
 		return failf("filter error: %v", err)
 	}
@@ -345,7 +345,7 @@ func cmdCreateIssue(client *redmine.Client, args []string) int {
 	tracker := fs.String("tracker", "", "Tracker name or numeric ID")
 	status := fs.String("status", "", "Initial status name or numeric ID")
 	priorityID := fs.Int("priority-id", 0, "Priority numeric ID")
-	assignee := fs.String("assignee", "", "Assignee name or numeric ID")
+	asignee := fs.String("assignee", "", "Assignee name or numeric ID")
 	version := fs.String("version", "", "Target version name or numeric ID")
 	parentID := fs.Int("parent-id", 0, "Parent issue ID for subtasks")
 	if code, ok := parseFlagsOnly(fs, args); !ok {
@@ -393,8 +393,8 @@ func cmdCreateIssue(client *redmine.Client, args []string) int {
 	if *priorityID > 0 {
 		params.PriorityID = *priorityID
 	}
-	if *assignee != "" {
-		resolved, err := client.ResolveUserID(*assignee)
+	if *asignee != "" {
+		resolved, err := client.ResolveUserID(*asignee)
 		if err != nil {
 			return failf("invalid assignee: %v", err)
 		}
@@ -425,7 +425,7 @@ func cmdUpdateIssue(client *redmine.Client, args []string) int {
 	subject := fs.String("subject", "", "New subject")
 	description := fs.String("description", "", "New description")
 	status := fs.String("status", "", "New status name or numeric ID")
-	assignee := fs.String("assignee", "", "New assignee name or numeric ID")
+	asignee := fs.String("assignee", "", "New assignee name or numeric ID")
 	tracker := fs.String("tracker", "", "New tracker name or numeric ID")
 	doneRatio := fs.Int("done-ratio", -1, "Completion percentage (0-100)")
 	priorityID := fs.Int("priority-id", 0, "New priority numeric ID")
@@ -469,8 +469,8 @@ func cmdUpdateIssue(client *redmine.Client, args []string) int {
 			return failf("status %q resolved to %q which is not numeric — use a specific status name", *status, resolved)
 		}
 	}
-	if *assignee != "" {
-		resolved, err := client.ResolveUserID(*assignee)
+	if *asignee != "" {
+		resolved, err := client.ResolveUserID(*asignee)
 		if err != nil {
 			return failf("invalid assignee: %v", err)
 		}
