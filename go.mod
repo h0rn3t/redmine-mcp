@@ -1,4 +1,4 @@
-module github.com/edouard-claude/redmine-mcp
+module github.com/h0rn3t/redmine-mcp
 
 go 1.25.0
 
