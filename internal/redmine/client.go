@@ -2,6 +2,7 @@ package redmine
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,6 +26,8 @@ type Client struct {
 }
 
 // NewClient creates a Redmine client from REDMINE_URL and REDMINE_API_KEY.
+// If REDMINE_SKIP_TLS_VERIFY is set to a truthy value (1, true, yes, on),
+// the HTTP client skips TLS certificate verification.
 func NewClient() (*Client, error) {
 	baseURL := os.Getenv("REDMINE_URL")
 	if baseURL == "" {
@@ -34,13 +37,30 @@ func NewClient() (*Client, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("REDMINE_API_KEY is not set")
 	}
+
+	transport := &http.Transport{}
+	if skipTLSVerify(os.Getenv("REDMINE_SKIP_TLS_VERIFY")) {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 		},
 	}, nil
+}
+
+// skipTLSVerify returns true for common truthy string values.
+func skipTLSVerify(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on", "y", "t":
+		return true
+	default:
+		return false
+	}
 }
 
 // BaseURL returns the Redmine base URL.
