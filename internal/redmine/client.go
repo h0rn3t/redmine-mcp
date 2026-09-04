@@ -21,8 +21,12 @@ type Client struct {
 	httpClient *http.Client
 
 	// cached reference data
-	statuses []IssueStatus
-	trackers []Tracker
+	statuses   []IssueStatus
+	trackers   []Tracker
+	priorities []IDName
+	users      map[string]string
+	versions   map[string][]Version
+	categories map[string][]IDName
 }
 
 // NewClient creates a Redmine client from REDMINE_URL and REDMINE_API_KEY.
@@ -50,6 +54,9 @@ func NewClient() (*Client, error) {
 			Timeout:   30 * time.Second,
 			Transport: transport,
 		},
+		users:      map[string]string{},
+		versions:   map[string][]Version{},
+		categories: map[string][]IDName{},
 	}, nil
 }
 
@@ -333,13 +340,123 @@ func (c *Client) GetTrackers() ([]Tracker, error) {
 	return c.trackers, nil
 }
 
-// GetVersions fetches versions for a project.
+// GetVersions fetches and caches versions for a project.
 func (c *Client) GetVersions(projectID string) ([]Version, error) {
+	if v, ok := c.versions[projectID]; ok {
+		return v, nil
+	}
 	var resp versionsResponse
 	if err := c.get(fmt.Sprintf("/projects/%s/versions.json", projectID), nil, &resp); err != nil {
 		return nil, fmt.Errorf("get versions for %s: %w", projectID, err)
 	}
+	c.versions[projectID] = resp.Versions
 	return resp.Versions, nil
+}
+
+// GetPriorities fetches and caches the issue priority enumeration.
+func (c *Client) GetPriorities() ([]IDName, error) {
+	if c.priorities != nil {
+		return c.priorities, nil
+	}
+	var resp prioritiesResponse
+	if err := c.get("/enumerations/issue_priorities.json", nil, &resp); err != nil {
+		return nil, fmt.Errorf("get priorities: %w", err)
+	}
+	c.priorities = resp.IssuePriorities
+	return c.priorities, nil
+}
+
+// GetCategories fetches and caches issue categories for a project.
+func (c *Client) GetCategories(projectID string) ([]IDName, error) {
+	if cats, ok := c.categories[projectID]; ok {
+		return cats, nil
+	}
+	var resp categoriesResponse
+	if err := c.get(fmt.Sprintf("/projects/%s/issue_categories.json", projectID), nil, &resp); err != nil {
+		return nil, fmt.Errorf("get categories for %s: %w", projectID, err)
+	}
+	c.categories[projectID] = resp.IssueCategories
+	return resp.IssueCategories, nil
+}
+
+// GetUserName resolves a numeric user ID to a display name, caching results.
+// Returns "" when the user cannot be fetched (restricted or deleted account).
+func (c *Client) GetUserName(id string) string {
+	if name, ok := c.users[id]; ok {
+		return name
+	}
+	var resp userResponse
+	name := ""
+	if err := c.get(fmt.Sprintf("/users/%s.json", id), nil, &resp); err == nil {
+		name = strings.TrimSpace(resp.User.Firstname + " " + resp.User.Lastname)
+		if name == "" {
+			name = resp.User.Login
+		}
+	}
+	c.users[id] = name
+	return name
+}
+
+// LookupName resolves a journal detail value (a numeric ID) to a human-readable
+// name for reference fields such as status_id or assigned_to_id. projectID
+// scopes project-specific lookups (versions, categories). Returns "" when the
+// field is not a reference or the lookup fails — callers fall back to the raw
+// value rather than failing the whole render.
+func (c *Client) LookupName(field, id, projectID string) string {
+	if id == "" {
+		return ""
+	}
+	switch field {
+	case "status_id":
+		if items, err := c.GetStatuses(); err == nil {
+			for _, s := range items {
+				if strconv.Itoa(s.ID) == id {
+					return s.Name
+				}
+			}
+		}
+	case "tracker_id":
+		if items, err := c.GetTrackers(); err == nil {
+			for _, t := range items {
+				if strconv.Itoa(t.ID) == id {
+					return t.Name
+				}
+			}
+		}
+	case "priority_id":
+		if items, err := c.GetPriorities(); err == nil {
+			for _, p := range items {
+				if strconv.Itoa(p.ID) == id {
+					return p.Name
+				}
+			}
+		}
+	case "assigned_to_id", "author_id", "user_id":
+		return c.GetUserName(id)
+	case "fixed_version_id":
+		if projectID == "" {
+			return ""
+		}
+		if items, err := c.GetVersions(projectID); err == nil {
+			for _, v := range items {
+				if strconv.Itoa(v.ID) == id {
+					return v.Name
+				}
+			}
+		}
+	case "category_id":
+		if projectID == "" {
+			return ""
+		}
+		if items, err := c.GetCategories(projectID); err == nil {
+			for _, cat := range items {
+				if strconv.Itoa(cat.ID) == id {
+					return cat.Name
+				}
+			}
+		}
+	}
+	return ""
 }
 
 // ResolveStatusID resolves a status name to its ID.

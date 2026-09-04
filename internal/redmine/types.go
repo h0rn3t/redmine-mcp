@@ -211,3 +211,20 @@ type searchResponse struct {
 type usersResponse struct {
 	Users []IDName `json:"users"`
 }
+
+type userResponse struct {
+	User struct {
+		ID        int    `json:"id"`
+		Login     string `json:"login"`
+		Firstname string `json:"firstname"`
+		Lastname  string `json:"lastname"`
+	} `json:"user"`
+}
+
+type prioritiesResponse struct {
+	IssuePriorities []IDName `json:"issue_priorities"`
+}
+
+type categoriesResponse struct {
+	IssueCategories []IDName `json:"issue_categories"`
+}

@@ -10,6 +10,7 @@ func RegisterAll(s *server.MCPServer, client *redmine.Client) {
 	registerGetIssue(s, client)
 	registerSearchIssues(s, client)
 	registerGetComments(s, client)
+	registerGetHistory(s, client)
 	registerGetSubtasks(s, client)
 	registerGetAttachments(s, client)
 	registerDownloadAttachment(s, client)

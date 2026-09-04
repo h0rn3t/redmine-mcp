@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/edouard-claude/redmine-mcp/internal/redmine"
@@ -53,10 +54,14 @@ func FormatIssue(issue *redmine.Issue, maxDesc int) string {
 		b.WriteString("\n")
 	}
 
+	if n := len(issue.Journals); n > 0 {
+		fmt.Fprintf(&b, "History: %d journal entry(s) — use get_history for the change log\n", n)
+	}
+
 	if issue.Description != "" {
 		desc := issue.Description
-		if maxDesc > 0 && len(desc) > maxDesc {
-			desc = desc[:maxDesc] + "\n[truncated]"
+		if cut, ok := truncateRunes(desc, maxDesc); ok {
+			desc = cut + "\n[truncated]"
 		}
 		fmt.Fprintf(&b, "\n## Description\n%s\n", desc)
 	}
@@ -117,6 +122,146 @@ func FormatComments(issueID int, journals []redmine.Journal) string {
 	return b.String()
 }
 
+// FormatHistory renders the full journal of an issue — field changes and notes,
+// oldest first. limit > 0 keeps only the most recent entries. The client is used
+// to resolve numeric IDs (status, assignee, version, …) to names.
+func FormatHistory(client *redmine.Client, issue *redmine.Issue, limit int) string {
+	if len(issue.Journals) == 0 {
+		return fmt.Sprintf("No history for issue #%d.", issue.ID)
+	}
+
+	journals := issue.Journals
+	hidden := 0
+	if limit > 0 && len(journals) > limit {
+		hidden = len(journals) - limit
+		journals = journals[hidden:]
+	}
+	projectID := strconv.Itoa(issue.Project.ID)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "## History of #%d — %s\n", issue.ID, issue.Subject)
+	fmt.Fprintf(&b, "%d entry(s)", len(journals))
+	if hidden > 0 {
+		fmt.Fprintf(&b, ", %d older entry(s) hidden", hidden)
+	}
+	b.WriteString("\n\n")
+
+	fmt.Fprintf(&b, "### Created — %s by %s\n\n", formatDateTime(issue.CreatedOn), issue.Author.Name)
+
+	for i, j := range journals {
+		fmt.Fprintf(&b, "### %d. %s — %s (journal_id: %d)\n", hidden+i+1, j.User.Name, formatDateTime(j.CreatedOn), j.ID)
+		for _, d := range j.Details {
+			fmt.Fprintf(&b, "- %s\n", formatDetail(client, d, projectID))
+		}
+		if j.Notes != "" {
+			if len(j.Details) > 0 {
+				b.WriteString("\n")
+			}
+			fmt.Fprintf(&b, "%s\n", j.Notes)
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+// formatDetail renders one field change from a journal entry.
+func formatDetail(client *redmine.Client, d redmine.JournalDetail, projectID string) string {
+	switch d.Property {
+	case "attachment":
+		if d.NewValue != "" {
+			return fmt.Sprintf("Attachment added: %s", d.NewValue)
+		}
+		return fmt.Sprintf("Attachment removed: %s", d.OldValue)
+	case "relation":
+		if d.NewValue != "" {
+			return fmt.Sprintf("Relation added: %s #%s", d.Name, d.NewValue)
+		}
+		return fmt.Sprintf("Relation removed: %s #%s", d.Name, d.OldValue)
+	case "cf":
+		return fmt.Sprintf("Custom field #%s: %s → %s", d.Name,
+			detailValue(client, "", d.OldValue, projectID),
+			detailValue(client, "", d.NewValue, projectID))
+	}
+
+	return fmt.Sprintf("%s: %s → %s", attrLabel(d.Name),
+		detailValue(client, d.Name, d.OldValue, projectID),
+		detailValue(client, d.Name, d.NewValue, projectID))
+}
+
+// detailValue resolves a raw journal value to something readable: a reference
+// name when the field is an ID, otherwise the value itself (shortened).
+func detailValue(client *redmine.Client, field, raw, projectID string) string {
+	if raw == "" {
+		return "(none)"
+	}
+	if name := client.LookupName(field, raw, projectID); name != "" {
+		return name
+	}
+	switch field {
+	case "parent_id":
+		return "#" + raw
+	case "done_ratio":
+		return raw + "%"
+	}
+	return shorten(raw, 200)
+}
+
+var attrLabels = map[string]string{
+	"subject":          "Subject",
+	"description":      "Description",
+	"status_id":        "Status",
+	"priority_id":      "Priority",
+	"tracker_id":       "Tracker",
+	"assigned_to_id":   "Assignee",
+	"category_id":      "Category",
+	"fixed_version_id": "Version",
+	"parent_id":        "Parent",
+	"project_id":       "Project",
+	"start_date":       "Start date",
+	"due_date":         "Due date",
+	"done_ratio":       "Done",
+	"estimated_hours":  "Estimated hours",
+	"is_private":       "Private",
+}
+
+// attrLabel maps a Redmine attribute name to a display label, falling back to a
+// prettified version of the raw name for fields we don't know about.
+func attrLabel(name string) string {
+	if label, ok := attrLabels[name]; ok {
+		return label
+	}
+	label := strings.ReplaceAll(strings.TrimSuffix(name, "_id"), "_", " ")
+	if label == "" {
+		return name
+	}
+	return strings.ToUpper(label[:1]) + label[1:]
+}
+
+// shorten collapses a multi-line value (a description edit, typically) onto one
+// line and truncates it, so a history entry stays one readable row.
+func shorten(s string, max int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if cut, ok := truncateRunes(s, max); ok {
+		return cut + "…"
+	}
+	return s
+}
+
+// truncateRunes cuts s to max characters, reporting whether it cut anything.
+// max <= 0 means no limit. Cutting on runes keeps multi-byte text (Cyrillic,
+// accents, emoji) from being sliced into an invalid byte sequence.
+func truncateRunes(s string, max int) (string, bool) {
+	if max <= 0 {
+		return s, false
+	}
+	r := []rune(s)
+	if len(r) <= max {
+		return s, false
+	}
+	return string(r[:max]), true
+}
+
 func FormatProjects(projects []redmine.Project) string {
 	if len(projects) == 0 {
 		return "No projects found."
@@ -129,8 +274,8 @@ func FormatProjects(projects []redmine.Project) string {
 		fmt.Fprintf(&b, "- **%s** (`%s`)", p.Name, p.Identifier)
 		if p.Description != "" {
 			desc := p.Description
-			if len(desc) > 100 {
-				desc = desc[:100] + "..."
+			if cut, ok := truncateRunes(desc, 100); ok {
+				desc = cut + "..."
 			}
 			fmt.Fprintf(&b, " — %s", desc)
 		}
