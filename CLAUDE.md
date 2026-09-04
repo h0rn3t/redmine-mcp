@@ -42,6 +42,7 @@ redmine-mcp mcp                      # → MCP stdio (explicit)
 redmine-mcp help                     # → top-level help
 redmine-mcp get-issue --help         # → flags for a subcommand
 redmine-mcp get-issue 7415
+redmine-mcp get-history 7415              # change log (--limit N for the last N entries)
 redmine-mcp search --project apnl --status open --limit 5
 redmine-mcp create-issue --project apnl --subject "..."
 redmine-mcp update-issue 7415 --notes "comment" --status "Résolu"
@@ -58,6 +59,7 @@ Flags must precede positional args (stdlib `flag` limitation).
 | `get_issue` | Full issue details by ID (includes attachments, journals, children) |
 | `search_issues` | Search with filters (project, status, assignee, tracker, version, text) + pagination |
 | `get_comments` | Journal notes for an issue |
+| `get_history` | Full change log: field changes per journal entry (status, assignee, version, attachments, relations) + notes; IDs resolved to names |
 | `get_subtasks` | Child issues of a parent |
 | `get_attachments` | File attachments with download URLs |
 | `download_attachment` | Download and return attachment content (images as base64, text inline) |

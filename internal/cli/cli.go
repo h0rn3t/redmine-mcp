@@ -34,6 +34,8 @@ func Run(args []string, client *redmine.Client) int {
 		return cmdSearch(client, args[1:])
 	case "get-comments":
 		return cmdGetComments(client, args[1:])
+	case "get-history":
+		return cmdGetHistory(client, args[1:])
 	case "get-subtasks":
 		return cmdGetSubtasks(client, args[1:])
 	case "get-attachments":
@@ -62,6 +64,7 @@ Reads:
   get-issue <id>            Full issue details
   search [filters]          Search issues (--project, --status, --query, ...)
   get-comments <id>         Journal notes for an issue
+  get-history <id>          Change log: field changes + notes (--limit N)
   get-subtasks <id>         Child issues
   get-attachments <id>      File attachments (metadata + URLs)
   download-attachment       Fetch attachment content (-o writes to file)
@@ -244,6 +247,21 @@ func cmdGetComments(client *redmine.Client, args []string) int {
 		return failf("get comments: %v", err)
 	}
 	fmt.Print(tools.FormatComments(ids[0], issue.Journals))
+	return 0
+}
+
+func cmdGetHistory(client *redmine.Client, args []string) int {
+	fs := flag.NewFlagSet("get-history", flag.ContinueOnError)
+	limit := fs.Int("limit", 0, "Keep only the N most recent entries (0 = full history)")
+	ids, code, ok := parseWithFlags(fs, args, "<id>", 1)
+	if !ok {
+		return code
+	}
+	issue, err := client.GetIssue(ids[0], "journals")
+	if err != nil {
+		return failf("get history: %v", err)
+	}
+	fmt.Print(tools.FormatHistory(client, issue, *limit))
 	return 0
 }
 
