@@ -129,6 +129,33 @@ type Version struct {
 	Status  string `json:"status"`
 }
 
+// TimeEntry represents a logged time entry (spent time) on an issue or project.
+type TimeEntry struct {
+	ID           int           `json:"id"`
+	Project      IDName        `json:"project"`
+	Issue        *IDRef        `json:"issue"`
+	User         IDName        `json:"user"`
+	Activity     IDName        `json:"activity"`
+	Hours        float64       `json:"hours"`
+	Comments     string        `json:"comments"`
+	SpentOn      string        `json:"spent_on"`
+	CustomFields []CustomField `json:"custom_fields"`
+	CreatedOn    string        `json:"created_on"`
+	UpdatedOn    string        `json:"updated_on"`
+}
+
+// TimeEntryListParams holds filters for listing time entries.
+type TimeEntryListParams struct {
+	IssueID   string // numeric issue ID
+	ProjectID string // project identifier or numeric ID
+	UserID    string // numeric ID or "me"
+	SpentOn   string // exact date (YYYY-MM-DD) or a Redmine date filter expression
+	From      string // range start (YYYY-MM-DD)
+	To        string // range end (YYYY-MM-DD)
+	Limit     int
+	Offset    int
+}
+
 // IssueListParams holds filters for listing issues.
 type IssueListParams struct {
 	ProjectID    string
@@ -184,6 +211,13 @@ type issuesResponse struct {
 	TotalCount int     `json:"total_count"`
 	Offset     int     `json:"offset"`
 	Limit      int     `json:"limit"`
+}
+
+type timeEntriesResponse struct {
+	TimeEntries []TimeEntry `json:"time_entries"`
+	TotalCount  int         `json:"total_count"`
+	Offset      int         `json:"offset"`
+	Limit       int         `json:"limit"`
 }
 
 type projectsResponse struct {

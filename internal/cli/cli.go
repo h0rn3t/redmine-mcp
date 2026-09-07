@@ -36,6 +36,8 @@ func Run(args []string, client *redmine.Client) int {
 		return cmdGetComments(client, args[1:])
 	case "get-history":
 		return cmdGetHistory(client, args[1:])
+	case "get-time-entries":
+		return cmdGetTimeEntries(client, args[1:])
 	case "get-subtasks":
 		return cmdGetSubtasks(client, args[1:])
 	case "get-attachments":
@@ -65,6 +67,8 @@ Reads:
   search [filters]          Search issues (--project, --status, --query, ...)
   get-comments <id>         Journal notes for an issue
   get-history <id>          Change log: field changes + notes (--limit N)
+  get-time-entries          Logged hours: who, what, how long, comments
+                             (--issue, --project, --user, --from, --to)
   get-subtasks <id>         Child issues
   get-attachments <id>      File attachments (metadata + URLs)
   download-attachment       Fetch attachment content (-o writes to file)
@@ -262,6 +266,53 @@ func cmdGetHistory(client *redmine.Client, args []string) int {
 		return failf("get history: %v", err)
 	}
 	fmt.Print(tools.FormatHistory(client, issue, *limit))
+	return 0
+}
+
+func cmdGetTimeEntries(client *redmine.Client, args []string) int {
+	fs := flag.NewFlagSet("get-time-entries", flag.ContinueOnError)
+	issue := fs.Int("issue", 0, "Only time logged on this issue ID (also accepted as a positional arg)")
+	project := fs.String("project", "", "Only time logged in this project identifier")
+	user := fs.String("user", "", "Only time logged by this person: name, login, numeric ID, or 'me'")
+	spentOn := fs.String("on", "", "Exact date (YYYY-MM-DD)")
+	from := fs.String("from", "", "Range start, inclusive (YYYY-MM-DD)")
+	to := fs.String("to", "", "Range end, inclusive (YYYY-MM-DD)")
+	limit := fs.Int("limit", 100, "Max entries (max 100)")
+	offset := fs.Int("offset", 0, "Pagination offset")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: redmine-mcp get-time-entries [flags] [issue-id]\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	if rest := fs.Args(); len(rest) > 0 {
+		if !checkNoExtraArgs(fs.Name(), rest[1:]) {
+			return 2
+		}
+		id, err := strconv.Atoi(rest[0])
+		if err != nil {
+			return failf("get-time-entries: %q is not an issue ID", rest[0])
+		}
+		*issue = id
+	}
+	if *limit > 100 {
+		*limit = 100
+	}
+
+	params, scope, err := tools.BuildTimeEntryParams(client, *issue, *project, *user, *spentOn, *from, *to, *limit, *offset)
+	if err != nil {
+		return failf("filter error: %v", err)
+	}
+
+	entries, total, err := client.ListTimeEntries(params)
+	if err != nil {
+		return failf("get time entries: %v", err)
+	}
+	fmt.Print(tools.FormatTimeEntries(entries, total, *offset, scope))
 	return 0
 }
 

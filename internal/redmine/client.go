@@ -262,6 +262,44 @@ func (c *Client) UpdateJournal(journalID int, notes string) error {
 	return nil
 }
 
+// --- Time entries ---
+
+// ListTimeEntries fetches logged time (spent time) with filters and pagination.
+// Redmine returns entries sorted by spent_on descending.
+func (c *Client) ListTimeEntries(p TimeEntryListParams) ([]TimeEntry, int, error) {
+	params := url.Values{}
+	if p.IssueID != "" {
+		params.Set("issue_id", p.IssueID)
+	}
+	if p.ProjectID != "" {
+		params.Set("project_id", p.ProjectID)
+	}
+	if p.UserID != "" {
+		params.Set("user_id", p.UserID)
+	}
+	if p.SpentOn != "" {
+		params.Set("spent_on", p.SpentOn)
+	}
+	if p.From != "" {
+		params.Set("from", p.From)
+	}
+	if p.To != "" {
+		params.Set("to", p.To)
+	}
+	if p.Limit > 0 {
+		params.Set("limit", strconv.Itoa(p.Limit))
+	}
+	if p.Offset > 0 {
+		params.Set("offset", strconv.Itoa(p.Offset))
+	}
+
+	var resp timeEntriesResponse
+	if err := c.get("/time_entries.json", params, &resp); err != nil {
+		return nil, 0, fmt.Errorf("list time entries: %w", err)
+	}
+	return resp.TimeEntries, resp.TotalCount, nil
+}
+
 // --- Projects ---
 
 // ListProjects fetches all accessible projects with pagination.

@@ -17,6 +17,7 @@ Read and write issues, comments, attachments, and projects — pick whichever in
 | `search_issues` | Search with filters (project, status, assignee, tracker, version, text) + pagination |
 | `get_comments` | Journal notes for an issue |
 | `get_history` | Change log: every journal entry with the fields that changed (IDs resolved to names) |
+| `get_time_entries` | Logged time: hours per person, activity and issue, with the comment on each entry (filters: issue, project, user, date range) |
 | `get_subtasks` | Child issues of a parent |
 | `get_attachments` | File attachments with download URLs |
 | `download_attachment` | Download attachment content (images as base64, text inline) |
@@ -55,6 +56,9 @@ redmine-mcp search --query "login crash" --project apnl
 redmine-mcp get-comments 7415
 redmine-mcp get-history 7415
 redmine-mcp get-history --limit 10 7415
+redmine-mcp get-time-entries 7415
+redmine-mcp get-time-entries --user "Іван Петренко" --from 2026-09-01 --to 2026-09-07
+redmine-mcp get-time-entries --project apnl --user me --on 2026-09-05
 redmine-mcp get-subtasks 7415
 redmine-mcp get-attachments 7415
 redmine-mcp download-attachment --id 4321 --filename screenshot.png -o /tmp/screen.png
@@ -157,6 +161,8 @@ Once connected, you can ask your AI assistant things like:
 - *"Search for open bugs in the backend project"*
 - *"What are the latest comments on issue #5678?"*
 - *"Who changed the status of issue #5678, and when?"*
+- *"How many hours were logged on issue #5678, by whom, and on what?"*
+- *"Show the time Іван logged last week with his comments"*
 - *"Create a bug report for the login page crash"*
 - *"Update issue #1234 status to In Progress and assign it to me"*
 - *"Download the screenshot attached to issue #5678"*

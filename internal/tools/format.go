@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -52,6 +53,9 @@ func FormatIssue(issue *redmine.Issue, maxDesc int) string {
 	if hours := formatHours(issue); hours != "" {
 		b.WriteString(hours)
 		b.WriteString("\n")
+		if hasSpentTime(issue) {
+			b.WriteString("Spent time: use get_time_entries for who logged what, when and why\n")
+		}
 	}
 
 	if n := len(issue.Journals); n > 0 {
@@ -262,6 +266,98 @@ func truncateRunes(s string, max int) (string, bool) {
 	return string(r[:max]), true
 }
 
+// FormatTimeEntries renders logged time: totals broken down by person, activity
+// and issue, then every entry with its date, hours and comment. scope describes
+// the filters used (e.g. "issue #7415"), total is Redmine's total_count so a
+// truncated page is visible as such.
+func FormatTimeEntries(entries []redmine.TimeEntry, total, offset int, scope string) string {
+	if scope == "" {
+		scope = "all accessible projects"
+	}
+	if len(entries) == 0 {
+		return fmt.Sprintf("No time entries for %s.", scope)
+	}
+
+	var sum float64
+	for _, e := range entries {
+		sum += e.Hours
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "## Time entries — %s\n", scope)
+	fmt.Fprintf(&b, "%d entry(s) shown", len(entries))
+	if total > len(entries)+offset {
+		fmt.Fprintf(&b, " of %d (offset %d)", total, offset)
+	}
+	fmt.Fprintf(&b, " | Total: %sh\n\n", trimFloat(sum))
+
+	byUser := map[string]hoursCount{}
+	byActivity := map[string]hoursCount{}
+	byIssue := map[string]hoursCount{}
+	for _, e := range entries {
+		byUser[e.User.Name] = byUser[e.User.Name].add(e.Hours)
+		byActivity[e.Activity.Name] = byActivity[e.Activity.Name].add(e.Hours)
+		byIssue[issueLabel(e)] = byIssue[issueLabel(e)].add(e.Hours)
+	}
+
+	writeHoursBreakdown(&b, "By person", byUser)
+	writeHoursBreakdown(&b, "By activity", byActivity)
+	if len(byIssue) > 1 {
+		writeHoursBreakdown(&b, "By issue", byIssue)
+	}
+
+	b.WriteString("### Entries\n")
+	for _, e := range entries {
+		fmt.Fprintf(&b, "- %s | %sh | %s | %s | %s\n",
+			e.SpentOn, trimFloat(e.Hours), e.User.Name, e.Activity.Name, issueLabel(e))
+		if e.Comments != "" {
+			fmt.Fprintf(&b, "  %s\n", e.Comments)
+		}
+	}
+
+	return b.String()
+}
+
+// hoursCount accumulates hours and the number of entries behind them.
+type hoursCount struct {
+	hours   float64
+	entries int
+}
+
+func (h hoursCount) add(hours float64) hoursCount {
+	return hoursCount{hours: h.hours + hours, entries: h.entries + 1}
+}
+
+// writeHoursBreakdown renders one grouping, biggest total first.
+func writeHoursBreakdown(b *strings.Builder, title string, groups map[string]hoursCount) {
+	keys := make([]string, 0, len(groups))
+	for k := range groups {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if groups[keys[i]].hours != groups[keys[j]].hours {
+			return groups[keys[i]].hours > groups[keys[j]].hours
+		}
+		return keys[i] < keys[j]
+	})
+
+	fmt.Fprintf(b, "### %s\n", title)
+	for _, k := range keys {
+		g := groups[k]
+		fmt.Fprintf(b, "- %s — %sh (%d entry(s))\n", k, trimFloat(g.hours), g.entries)
+	}
+	b.WriteString("\n")
+}
+
+// issueLabel names the target of a time entry: the issue when there is one,
+// otherwise the project the time was logged against directly.
+func issueLabel(e redmine.TimeEntry) string {
+	if e.Issue != nil && e.Issue.ID > 0 {
+		return fmt.Sprintf("#%d", e.Issue.ID)
+	}
+	return "project " + e.Project.Name
+}
+
 func FormatProjects(projects []redmine.Project) string {
 	if len(projects) == 0 {
 		return "No projects found."
@@ -343,6 +439,12 @@ func formatHours(issue *redmine.Issue) string {
 		return ""
 	}
 	return "Hours — " + strings.Join(parts, " | ")
+}
+
+// hasSpentTime reports whether any time was logged on the issue or its subtasks.
+func hasSpentTime(issue *redmine.Issue) bool {
+	return (issue.SpentHours != nil && *issue.SpentHours > 0) ||
+		(issue.TotalSpentHours != nil && *issue.TotalSpentHours > 0)
 }
 
 func trimFloat(v float64) string {
